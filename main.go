@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"os/exec"
 	"sort"
+	"time"
 )
 
 var dataUrl = "https://data.vatsim.net/v3/vatsim-data.json"
@@ -145,36 +148,47 @@ func buildFieldsFromDataAndMetars(pilots []DataPilot, metars *map[string]string)
 	return fields
 }
 
+func clear() {
+	cmd := exec.Command("cmd", "/c", "cls")
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+}
+
 func main() {
-	d, err := getData()
-	if err != nil {
-		fmt.Println("No data")
-		return
-	}
 
-	pilotsForEfin := pilotsForIcaoPrefix("EF", d.Pilots)
-
-	metars, err := getMetars()
-	if err != nil {
-		fmt.Println("No metars")
-		return
-	}
-
-	result := buildFieldsFromDataAndMetars(pilotsForEfin, metars)
-
-	fields := make([]string, 0, len(result))
-	for k := range result {
-		fields = append(fields, k)
-	}
-	sort.Strings(fields)
-
-	fmt.Println("EFIN Met, relevant METARS")
-	fmt.Println("Field: (dep, arr), metar")
-	fmt.Println("--------------------------")
-	for _, f := range fields {
-		v := result[f]
-		if v.Metar != "" {
-			fmt.Printf("%s: (%d, %d) %s\n", f, v.NumDep, v.NumArr, v.Metar)
+	for {
+		d, err := getData()
+		if err != nil {
+			fmt.Println("No data")
+			return
 		}
+
+		pilotsForEfin := pilotsForIcaoPrefix("EF", d.Pilots)
+
+		metars, err := getMetars()
+		if err != nil {
+			fmt.Println("No metars")
+			return
+		}
+
+		result := buildFieldsFromDataAndMetars(pilotsForEfin, metars)
+
+		fields := make([]string, 0, len(result))
+		for k := range result {
+			fields = append(fields, k)
+		}
+		sort.Strings(fields)
+
+		clear()
+		fmt.Println("EFIN Met, relevant METARS")
+		fmt.Println("Field: (dep, arr), metar")
+		fmt.Println("--------------------------")
+		for _, f := range fields {
+			v := result[f]
+			if v.Metar != "" {
+				fmt.Printf("%s: (%d, %d) %s\n", f, v.NumDep, v.NumArr, v.Metar)
+			}
+		}
+		time.Sleep(30 * time.Second)
 	}
 }
