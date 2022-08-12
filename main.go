@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -31,6 +32,10 @@ type DataPilot struct {
 	Callsign    string         `json:"callsign"`
 	Transponder string         `json:"transponder"`
 	FlightPlan  DataFlightPlan `json:"flight_plan"`
+	Latitude    float64        `json:"latitude"`
+	Longitude   float64        `json:"longitude"`
+	Altityde    int            `json:"altitude"`
+	GroundSpeed int            `json:"groundspeed"`
 }
 
 type data struct {
@@ -154,7 +159,41 @@ func clear() {
 	cmd.Run()
 }
 
+func distanceBetween(lat1, lon1, lat2, lon2 float64) float64 {
+	r := 6371.0 // Radius of the Earth in km
+	x := (lon2 - lon1) * math.Pi / 180 * math.Cos(((lat1+lat2)/2)*math.Pi/180)
+	y := (lat2 - lat1) * math.Pi / 180
+	return r * math.Sqrt(x*x+y*y)
+}
+
+func pilotsWithinRangeLimits(in []DataPilot, airports AirportsInfo) (out []DataPilot) {
+	for _, pilot := range in {
+		arrAirport, ok := airports[pilot.FlightPlan.Arrival]
+		if ok { // Pilot arriving in Finland
+			distance := distanceBetween(pilot.Latitude, pilot.Longitude, arrAirport.Lat, arrAirport.Lon)
+			if distance <= 300*1.852 {
+				out = append(out, pilot)
+			}
+			continue
+		}
+		depAirport, ok := airports[pilot.FlightPlan.Departure]
+		if ok { // Pilot is departing from Finland
+			distance := distanceBetween(pilot.Latitude, pilot.Longitude, depAirport.Lat, depAirport.Lon)
+			if distance < 10*1.852 {
+				out = append(out, pilot)
+			}
+			continue
+		}
+	}
+	return
+}
+
 func main() {
+
+	airports, err := GetAirportsInfo()
+	if err != nil {
+		fmt.Printf("Unable to read aiports: %v\n", err)
+	}
 
 	for {
 		d, err := getData()
@@ -164,6 +203,7 @@ func main() {
 		}
 
 		pilotsForEfin := pilotsForIcaoPrefix("EF", d.Pilots)
+		pilotsWithinRangeLimits := pilotsWithinRangeLimits(pilotsForEfin, airports)
 
 		metars, err := getMetars()
 		if err != nil {
@@ -171,7 +211,7 @@ func main() {
 			return
 		}
 
-		result := buildFieldsFromDataAndMetars(pilotsForEfin, metars)
+		result := buildFieldsFromDataAndMetars(pilotsWithinRangeLimits, metars)
 
 		fields := make([]string, 0, len(result))
 		for k := range result {
