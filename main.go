@@ -174,7 +174,6 @@ func pilotsWithinRangeLimits(in []DataPilot, airports AirportsInfo) (out []DataP
 			if distance <= 300*1.852 {
 				out = append(out, pilot)
 			}
-			continue
 		}
 		depAirport, ok := airports[pilot.FlightPlan.Departure]
 		if ok { // Pilot is departing from Finland
@@ -182,7 +181,6 @@ func pilotsWithinRangeLimits(in []DataPilot, airports AirportsInfo) (out []DataP
 			if distance < 10*1.852 {
 				out = append(out, pilot)
 			}
-			continue
 		}
 	}
 	return
