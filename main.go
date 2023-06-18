@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"sort"
 	"time"
 )
@@ -154,7 +155,15 @@ func buildFieldsFromDataAndMetars(pilots []DataPilot, metars *map[string]string)
 }
 
 func clear() {
-	cmd := exec.Command("cmd", "/c", "cls")
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "linux":
+		cmd = exec.Command("clear")
+		break
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "cls")
+		break
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Run()
 }
