@@ -82,7 +82,20 @@ type metar struct {
 }
 
 func getMetars() (*map[string]string, error) {
-	res, err := http.Get(metarUrl)
+	req, err := http.NewRequest("GET", metarUrl, nil)
+	if err != nil {
+		fmt.Printf("could not create metars request: %v", err)
+		return nil, err
+	}
+	req.Header.Add("Accept", "application/json, text/javascript, */*")
+	req.Header.Add("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Add("Referer", "https://www.ilmailusaa.fi/weather-flightpath.html?location")
+	req.Header.Add("Sec-Fetch-Dest", "empty")
+	req.Header.Add("Sec-Fetch-Mode", "cors")
+	req.Header.Add("Sec-Fetch-Site", "same-origin")
+	req.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/117.0")
+
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		fmt.Printf("Could not get metars: %v", err)
 		return nil, err
