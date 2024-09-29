@@ -10,70 +10,11 @@ import (
 	"runtime"
 	"sort"
 	"time"
+	"github.com/Tebro/efinmet/pkg/utils"
+	"github.com/Tebro/efinmet/pkg/vatsimdata"
 )
 
-var dataUrl = "https://data.vatsim.net/v3/vatsim-data.json"
 var metarUrl = "https://www.ilmailusaa.fi/backend.php?{%22mode%22:%22metar%22,%22radius%22:%22100%22,%22points%22:[{%22_area%22:%221%22}]}"
-
-type DataFlightPlan struct {
-	FlightRules         string `json:"flight_rules"`
-	Aircraft            string `json:"aircraft_short"`
-	Departure           string `json:"departure"`
-	Arrival             string `json:"arrival"`
-	Altitude            string `json:"altitude"`
-	Deptime             string `json:"deptime"`
-	Remarks             string `json:"remarks"`
-	Route               string `json:"route"`
-	AssignedTransponder string `json:"assigned_transponder"`
-}
-
-type DataPilot struct {
-	Cid         int            `json:"cid"`
-	Name        string         `json:"name"`
-	Callsign    string         `json:"callsign"`
-	Transponder string         `json:"transponder"`
-	FlightPlan  DataFlightPlan `json:"flight_plan"`
-	Latitude    float64        `json:"latitude"`
-	Longitude   float64        `json:"longitude"`
-	Altityde    int            `json:"altitude"`
-	GroundSpeed int            `json:"groundspeed"`
-}
-
-type data struct {
-	//general dataGeneral
-	Pilots []DataPilot `json:"pilots"`
-}
-
-func pilotsForIcaoPrefix(prefix string, pilots []DataPilot) []DataPilot {
-	res := []DataPilot{}
-	prefixLen := len(prefix)
-	for _, p := range pilots {
-		if len(p.FlightPlan.Arrival) >= prefixLen && len(p.FlightPlan.Departure) >= prefixLen {
-			startDep := p.FlightPlan.Departure[0:prefixLen]
-			startArr := p.FlightPlan.Arrival[0:prefixLen]
-			if startDep == prefix || startArr == prefix {
-				res = append(res, p)
-			}
-		}
-	}
-	return res
-}
-
-func getData() (*data, error) {
-	res, err := http.Get(dataUrl)
-	if err != nil {
-		fmt.Printf("Could not get data: %v", err)
-		return nil, err
-	}
-	defer res.Body.Close()
-	var d data
-	err = json.NewDecoder(res.Body).Decode(&d)
-	if err != nil {
-		fmt.Printf("Could not parse data: %v", err)
-		return nil, err
-	}
-	return &d, nil
-}
 
 type metar struct {
 	P1  string `json:"p1"`
@@ -128,11 +69,7 @@ type field struct {
 	Metar  string
 }
 
-func fieldIcaoHasPrefix(prefix string, fieldIcao string) bool {
-	return len(fieldIcao) >= len(prefix) && fieldIcao[0:len(prefix)] == prefix
-}
-
-func buildFieldsFromDataAndMetars(pilots []DataPilot, metars *map[string]string) map[string]*field {
+func buildFieldsFromDataAndMetars(pilots []vatsimdata.DataPilot, metars *map[string]string) map[string]*field {
 	fields := map[string]*field{}
 
 	hasField := func(fieldName string) bool {
@@ -148,14 +85,14 @@ func buildFieldsFromDataAndMetars(pilots []DataPilot, metars *map[string]string)
 	}
 
 	for _, p := range pilots {
-		if fieldIcaoHasPrefix("EF", p.FlightPlan.Arrival) {
+		if utils.FieldIcaoHasPrefix("EF", p.FlightPlan.Arrival) {
 			if !hasField(p.FlightPlan.Arrival) {
 				addField(p.FlightPlan.Arrival)
 			}
 			f := fields[p.FlightPlan.Arrival]
 			f.NumArr += 1
 		}
-		if fieldIcaoHasPrefix("EF", p.FlightPlan.Departure) {
+		if utils.FieldIcaoHasPrefix("EF", p.FlightPlan.Departure) {
 			if !hasField(p.FlightPlan.Departure) {
 				addField(p.FlightPlan.Departure)
 			}
@@ -188,7 +125,7 @@ func distanceBetween(lat1, lon1, lat2, lon2 float64) float64 {
 	return r * math.Sqrt(x*x+y*y)
 }
 
-func pilotsWithinRangeLimits(in []DataPilot, airports AirportsInfo) (out []DataPilot) {
+func pilotsWithinRangeLimits(in []vatsimdata.DataPilot, airports AirportsInfo) (out []vatsimdata.DataPilot) {
 	for _, pilot := range in {
 		arrAirport, ok := airports[pilot.FlightPlan.Arrival]
 		if ok { // Pilot arriving in Finland
@@ -216,13 +153,13 @@ func main() {
 	}
 
 	for {
-		d, err := getData()
+		d, err := vatsimdata.GetData()
 		if err != nil {
 			fmt.Println("No data")
 			return
 		}
 
-		pilotsForEfin := pilotsForIcaoPrefix("EF", d.Pilots)
+		pilotsForEfin := vatsimdata.PilotsForIcaoPrefix("EF", d.Pilots)
 		pilotsWithinRangeLimits := pilotsWithinRangeLimits(pilotsForEfin, airports)
 
 		metars, err := getMetars()
