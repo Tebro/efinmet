@@ -3,13 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"net/http"
-	"os"
-	"os/exec"
-	"runtime"
 	"sort"
 	"time"
+
 	"github.com/Tebro/efinmet/pkg/utils"
 	"github.com/Tebro/efinmet/pkg/vatsimdata"
 )
@@ -104,39 +101,18 @@ func buildFieldsFromDataAndMetars(pilots []vatsimdata.DataPilot, metars *map[str
 	return fields
 }
 
-func clear() {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "linux":
-		cmd = exec.Command("clear")
-		break
-	case "windows":
-		cmd = exec.Command("cmd", "/c", "cls")
-		break
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Run()
-}
-
-func distanceBetween(lat1, lon1, lat2, lon2 float64) float64 {
-	r := 6371.0 // Radius of the Earth in km
-	x := (lon2 - lon1) * math.Pi / 180 * math.Cos(((lat1+lat2)/2)*math.Pi/180)
-	y := (lat2 - lat1) * math.Pi / 180
-	return r * math.Sqrt(x*x+y*y)
-}
-
 func pilotsWithinRangeLimits(in []vatsimdata.DataPilot, airports AirportsInfo) (out []vatsimdata.DataPilot) {
 	for _, pilot := range in {
 		arrAirport, ok := airports[pilot.FlightPlan.Arrival]
 		if ok { // Pilot arriving in Finland
-			distance := distanceBetween(pilot.Latitude, pilot.Longitude, arrAirport.Lat, arrAirport.Lon)
+			distance := utils.DistanceBetween(pilot.Latitude, pilot.Longitude, arrAirport.Lat, arrAirport.Lon)
 			if distance <= 300*1.852 {
 				out = append(out, pilot)
 			}
 		}
 		depAirport, ok := airports[pilot.FlightPlan.Departure]
 		if ok { // Pilot is departing from Finland
-			distance := distanceBetween(pilot.Latitude, pilot.Longitude, depAirport.Lat, depAirport.Lon)
+			distance := utils.DistanceBetween(pilot.Latitude, pilot.Longitude, depAirport.Lat, depAirport.Lon)
 			if distance < 10*1.852 {
 				out = append(out, pilot)
 			}
@@ -176,7 +152,7 @@ func main() {
 		}
 		sort.Strings(fields)
 
-		clear()
+		utils.ClearTerm()
 		fmt.Println("EFIN Met, relevant METARS")
 		fmt.Println("Field: (dep, arr), metar")
 		fmt.Println("--------------------------")
