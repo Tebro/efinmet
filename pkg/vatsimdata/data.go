@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 
@@ -41,14 +42,9 @@ type data struct {
 
 func PilotsForIcaoPrefix(prefix string, pilots []DataPilot) []DataPilot {
 	res := []DataPilot{}
-	prefixLen := len(prefix)
 	for _, p := range pilots {
-		if len(p.FlightPlan.Arrival) >= prefixLen && len(p.FlightPlan.Departure) >= prefixLen {
-			startDep := p.FlightPlan.Departure[0:prefixLen]
-			startArr := p.FlightPlan.Arrival[0:prefixLen]
-			if startDep == prefix || startArr == prefix {
-				res = append(res, p)
-			}
+		if strings.HasPrefix(p.FlightPlan.Departure, prefix) || strings.HasPrefix(p.FlightPlan.Arrival, prefix) {
+			res = append(res, p)
 		}
 	}
 	return res
