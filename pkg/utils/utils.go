@@ -28,6 +28,7 @@ func ClearTerm() {
 	cmd.Run()
 }
 
+// Returns the distance between two points in kilometers
 func DistanceBetween(lat1, lon1, lat2, lon2 float64) float64 {
 	r := 6371.0 // Radius of the Earth in km
 	x := (lon2 - lon1) * math.Pi / 180 * math.Cos(((lat1+lat2)/2)*math.Pi/180)
